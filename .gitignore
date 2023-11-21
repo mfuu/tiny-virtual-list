@@ -1,0 +1,19 @@
+.idea
+.vscode
+dev
+issues
+coverage
+docs
+*.html
+
+# dependencies
+node_modules
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# lock files
+package-lock.json
+yarn.lock
