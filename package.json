@@ -1,0 +1,44 @@
+{
+  "name": "virtual-list",
+  "version": "0.0.1",
+  "description": "JS library for virtual list",
+  "main": "dist/virtual-list.min.js",
+  "types": "types/index.d.ts",
+  "files": [
+    "dist",
+    "types"
+  ],
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "rollup --config"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mfuu/virtual-list.git"
+  },
+  "keywords": [
+    "list",
+    "virtual",
+    "big-data"
+  ],
+  "author": "mfuu",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/mfuu/virtual-list/issues"
+  },
+  "homepage": "https://github.com/mfuu/virtual-list#readme",
+  "devDependencies": {
+    "@babel/core": "^7.18.10",
+    "@babel/preset-env": "^7.18.10",
+    "babel-eslint": "^10.1.0",
+    "eslint": "^6.2.1",
+    "eslint-config-prettier": "^6.15.0",
+    "eslint-plugin-prettier": "^3.4.1",
+    "prettier": "^2.8.4",
+    "rollup": "^1.32.1",
+    "rollup-plugin-babel": "^4.4.0",
+    "rollup-plugin-commonjs": "^10.1.0",
+    "rollup-plugin-node-resolve": "^5.2.0",
+    "rollup-plugin-uglify": "^6.0.4"
+  }
+}
