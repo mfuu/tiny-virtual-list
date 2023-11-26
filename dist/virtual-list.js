@@ -286,7 +286,7 @@
     },
     _onRefresh: function _onRefresh() {
       if (this.averageSize < 1) {
-        this._onInit();
+        this._onCreate();
         return;
       }
 

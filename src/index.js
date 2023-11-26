@@ -198,7 +198,7 @@ Virtual.prototype = {
 
   _onRefresh: function () {
     if (this.averageSize < 1) {
-      this._onInit();
+      this._onCreate();
       return;
     }
 
