@@ -71,6 +71,8 @@ function Virtual(el, options) {
 
   this.scrollEl = this._getScrollElement(this.options.scroller);
   on(this.options.scroller, 'scroll', this._onScroll);
+
+  this._onCreate();
 }
 
 Virtual.prototype = {
@@ -84,23 +86,7 @@ Virtual.prototype = {
   },
 
   refresh() {
-    this._onRefresh();
-  },
-
-  // call this method to avoid jitter when scrolling up
-  correct() {
-    let dValue = 0;
-
-    const items = this._getRenderingItems();
-    for (let i = this.range.start; i < this.lastStart; i += 1) {
-      const item = items[i - this.range.start];
-      const dataIndex = this._getItemIndex(item);
-      if (item && dataIndex) {
-        dValue += this._getItemSize(item) - this.getSize(dataIndex);
-      }
-    }
-
-    this.scrollEl[offsetSize[this.options.direction]] = dValue + this.offset;
+    this.averageSize > 1 ? this._onRefresh() : this._onCreate();
   },
 
   option(key, value) {
@@ -110,7 +96,7 @@ Virtual.prototype = {
     this.options[key] = value;
 
     if (key === 'itemCount') {
-      this._onInit();
+      this._onCreate();
     } else if (key === 'scroller') {
       off(oldValue, 'scroll', this._onScroll);
       this.scrollEl = this._getScrollElement(value);
@@ -175,7 +161,7 @@ Virtual.prototype = {
     }
   },
 
-  _onInit: function () {
+  _onCreate: function () {
     // not available in the case of `display: none` in window scroll
     if (!this._contentVisible()) return;
 

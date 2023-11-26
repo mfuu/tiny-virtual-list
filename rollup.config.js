@@ -21,14 +21,14 @@ export default {
     {
       format: 'umd',
       file: 'dist/virtual-list.js',
-      name: 'Sortable',
+      name: 'Virtual',
       sourcemap: false,
       banner: banner.replace(/\n/, ''),
     },
     {
       format: 'umd',
       file: 'dist/virtual-list.min.js',
-      name: 'Sortable',
+      name: 'Virtual',
       sourcemap: false,
       banner: banner.replace(/\n/, ''),
       plugins: [uglify()],

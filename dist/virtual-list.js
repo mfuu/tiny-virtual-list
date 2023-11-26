@@ -1,13 +1,13 @@
 /*!
  * virtual-list v0.0.1
  * open source under the MIT license
- * https://github.com/mfuu/virtual-list#readme
+ * https://github.com/mfuu/virtual-list-core#readme
  */
 
 (function (global, factory) {
   typeof exports === 'object' && typeof module !== 'undefined' ? module.exports = factory() :
   typeof define === 'function' && define.amd ? define(factory) :
-  (global = global || self, global.Sortable = factory());
+  (global = global || self, global.Virtual = factory());
 }(this, (function () { 'use strict';
 
   function ownKeys(e, r) {
@@ -175,6 +175,7 @@
     }
     this.scrollEl = this._getScrollElement(this.options.scroller);
     on(this.options.scroller, 'scroll', this._onScroll);
+    this._onCreate();
   }
   Virtual.prototype = {
     constructor: Virtual,
@@ -184,27 +185,14 @@
       this.sizes = this.range = this.offset = this.lastStart = this.averageSize = null;
     },
     refresh: function refresh() {
-      this._onRefresh();
-    },
-    // call this method to avoid jitter when scrolling up
-    correct: function correct() {
-      var dValue = 0;
-      var items = this._getRenderingItems();
-      for (var i = this.range.start; i < this.lastStart; i += 1) {
-        var item = items[i - this.range.start];
-        var dataIndex = this._getItemIndex(item);
-        if (item && dataIndex) {
-          dValue += this._getItemSize(item) - this.getSize(dataIndex);
-        }
-      }
-      this.scrollEl[offsetSize[this.options.direction]] = dValue + this.offset;
+      this.averageSize > 1 ? this._onRefresh() : this._onCreate();
     },
     option: function option(key, value) {
       if (value === void 0) return this.options[key];
       var oldValue = this.options[key];
       this.options[key] = value;
       if (key === 'itemCount') {
-        this._onInit();
+        this._onCreate();
       } else if (key === 'scroller') {
         off(oldValue, 'scroll', this._onScroll);
         this.scrollEl = this._getScrollElement(value);
@@ -268,7 +256,7 @@
         };
       }
     },
-    _onInit: function _onInit() {
+    _onCreate: function _onCreate() {
       // not available in the case of `display: none` in window scroll
       if (!this._contentVisible()) return;
       var items = this._getRenderingItems();
