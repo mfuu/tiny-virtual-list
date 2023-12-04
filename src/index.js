@@ -10,7 +10,7 @@ const DIRECTION = {
   VERTICAL: 'vertical',
 };
 
-const offsetSize = {
+const scrollType = {
   [DIRECTION.VERTICAL]: 'scrollTop',
   [DIRECTION.HORIZONTAL]: 'scrollLeft',
 };
@@ -20,9 +20,14 @@ const scrollSize = {
   [DIRECTION.HORIZONTAL]: 'scrollWidth',
 };
 
-const elementSize = {
+const offsetSize = {
   [DIRECTION.VERTICAL]: 'offsetHeight',
   [DIRECTION.HORIZONTAL]: 'offsetWidth',
+};
+
+const offsetType = {
+  [DIRECTION.VERTICAL]: 'offsetTop',
+  [DIRECTION.HORIZONTAL]: 'offsetLeft',
 };
 
 /**
@@ -54,25 +59,15 @@ function Virtual(el, options) {
   }
 
   this.sizes = [];
-  this.range = { start: 0, end: 0, front: 0, behind: 0, total: 0 };
+  this.range = { start: 0, end: 0, front: 0, behind: 0 };
   this.offset = 0;
-  this.lastStart = 0;
   this.averageSize = 0;
   this.scrollDirection = '';
+  this.useWindowScroll = null;
 
   this._updateOnScrollFunction();
-
-  // Bind all private methods
-  for (let fn in this) {
-    if (fn.charAt(0) === '_' && typeof this[fn] === 'function') {
-      this[fn] = this[fn].bind(this);
-    }
-  }
-
-  this.scrollEl = this._getScrollElement(this.options.scroller);
-  on(this.options.scroller, 'scroll', this._onScroll);
-
-  this._onCreate();
+  this._addScrollEventListener();
+  this._updateWithoutScrolling();
 }
 
 Virtual.prototype = {
@@ -82,11 +77,11 @@ Virtual.prototype = {
   destroy() {
     off(this.options.scroller, 'scroll', this._onScroll);
 
-    this.sizes = this.range = this.offset = this.lastStart = this.averageSize = null;
+    this.sizes = this.range = this.offset = this.averageSize = this.scrollDirection = null;
   },
 
   refresh() {
-    this.averageSize > 1 ? this._onRefresh() : this._onCreate();
+    this._handleScroll();
   },
 
   option(key, value) {
@@ -96,11 +91,10 @@ Virtual.prototype = {
     this.options[key] = value;
 
     if (key === 'itemCount') {
-      this._onCreate();
+      this._updateWithoutScrolling();
     } else if (key === 'scroller') {
       off(oldValue, 'scroll', this._onScroll);
-      this.scrollEl = this._getScrollElement(value);
-      on(value, 'scroll', this._onScroll);
+      this._addScrollEventListener();
     } else if (key === 'throttleTime' || key === 'debounceTime') {
       this._updateOnScrollFunction();
     }
@@ -111,7 +105,7 @@ Virtual.prototype = {
   },
 
   getOffset() {
-    return this.scrollEl[offsetSize[this.options.direction]];
+    return this.scrollEl[scrollType[this.options.direction]];
   },
 
   getScrollSize() {
@@ -119,19 +113,20 @@ Virtual.prototype = {
   },
 
   getClientSize() {
-    return this.scrollEl[elementSize[this.options.direction]];
+    return this.scrollEl[offsetSize[this.options.direction]];
   },
 
   scrollToOffset(offset) {
-    this.scrollEl[offsetSize[this.options.direction]] = offset;
+    this.scrollEl[scrollType[this.options.direction]] = offset;
   },
 
   scrollToIndex(index) {
-    if (index > this._getLength()) {
+    if (index > this._getLastIndex()) {
       this.scrollToBottom();
     } else {
       const offset = this._getOffsetByRange(0, index);
-      this.scrollToOffset(offset + this.options.ignoreSize);
+      const startOffset = this._getScrollStartOffset();
+      this.scrollToOffset(offset + startOffset);
     }
   },
 
@@ -152,25 +147,32 @@ Virtual.prototype = {
 
   // ========================================= Properties =========================================
   _updateOnScrollFunction: function () {
-    if (this.options.debounceTime) {
-      this._onScroll = debounce(() => this._onRefresh(), this.options.debounceTime);
-    } else if (this.options.throttleTime) {
-      this._onScroll = throttle(() => this._onRefresh(), this.options.throttleTime);
+    const { debounceTime, throttleTime } = this.options;
+    if (debounceTime) {
+      this._onScroll = debounce(() => this._handleScroll(), debounceTime);
+    } else if (throttleTime) {
+      this._onScroll = throttle(() => this._handleScroll(), throttleTime);
     } else {
-      this._onScroll = () => this._onRefresh();
+      this._onScroll = () => this._handleScroll();
     }
+
+    this._onScroll = this._onScroll.bind(this);
   },
 
-  _onCreate: function () {
-    // not available in the case of `display: none` in window scroll
-    if (!this._contentVisible()) return;
+  _addScrollEventListener: function () {
+    this.scrollEl = this._getScrollElement(this.options.scroller);
+    on(this.options.scroller, 'scroll', this._onScroll);
+  },
 
-    const items = this._getRenderingItems();
+  _updateWithoutScrolling: function () {
+    // not available in the case of `display: none` in window scroll
+    if (!this._containerVisible()) return;
+
+    const items = this._getChildren();
     if (!items.length) return;
 
     const clientSize = this.getClientSize();
-    const scrollOffset = this.getOffset();
-    const realScrollOffset = Math.abs(scrollOffset - this.options.ignoreSize);
+    const realScrollOffset = Math.abs(this._getScrollOffset());
 
     let end = this.range.start;
     let renderingSize = Math.max(0, this.range.front - realScrollOffset);
@@ -181,57 +183,41 @@ Virtual.prototype = {
       // jump out of the loop when the number of first renderings cannot fill the container
       if (!item) break;
 
-      const dataIndex = this._getItemIndex(item);
-      const itemSize = this._getItemSize(item);
+      const index = this._getElementIndex(item);
+      const size = this._getElementSize(item);
 
-      this.sizes[dataIndex] = itemSize;
-      renderingSize += itemSize;
+      this.sizes[index] = size;
+      renderingSize += size;
       end += 1;
     }
 
     this.averageSize = Math.round((this.range.front + renderingSize) / end);
     this.sizes.length = this.options.itemCount;
-    end = Math.min(this._getLength(), end + 1);
+    end = Math.min(this._getLastIndex(), end + 1);
 
     this._updateRange({ ...this.range, end });
   },
 
-  _onRefresh: function () {
+  _handleScroll: function () {
+    // not available in the case of `display: none` in window scroll
+    if (!this._containerVisible()) return;
+
     if (this.averageSize < 1) {
-      this._onCreate();
+      this._updateWithoutScrolling();
       return;
     }
 
-    // not available in the case of `display: none` in window scroll
-    if (!this._contentVisible()) return;
+    const params = this._getScrollParams();
 
-    const scrollOffset = this.getOffset();
-    const clientSize = this.getClientSize();
-    const scrollSize = this.getScrollSize();
-
-    if (scrollOffset < this.offset - 1) {
-      this.scrollDirection = SCROLL_DIRECTION.FORWARD;
-    } else if (scrollOffset > this.offset + 1) {
-      this.scrollDirection = SCROLL_DIRECTION.BACKWARD;
-    } else {
-      this.scrollDirection = '';
-    }
-
-    this.offset = scrollOffset;
-
-    this._dispatchEvent('onScroll', {
-      top: !!this.options.itemCount && scrollOffset <= 0,
-      bottom: clientSize + scrollOffset + 1 >= scrollSize,
-      offset: scrollOffset,
-      direction: this.scrollDirection,
-    });
+    this.scrollDirection = params.direction;
+    this._dispatchEvent('onScroll', params);
 
     // stop the calculation when scrolling front and start is `0`
     // or when scrolling behind and end is maximum length
     if (
-      !this.scrollDirection ||
-      (this.scrollDirection === SCROLL_DIRECTION.FORWARD && this.range.start === 0) ||
-      (this.scrollDirection === SCROLL_DIRECTION.BACKWARD && this.range.end === this._getLength())
+      !params.direction ||
+      (params.direction === SCROLL_DIRECTION.FORWARD && this.range.start === 0) ||
+      (params.direction === SCROLL_DIRECTION.BACKWARD && this.range.end === this._getLastIndex())
     ) {
       return;
     }
@@ -239,15 +225,32 @@ Virtual.prototype = {
     this._onUpdate();
   },
 
+  _getScrollParams: function () {
+    const offset = this.getOffset();
+    const clientSize = this.getClientSize();
+    const scrollSize = this.getScrollSize();
+
+    const isTop = !!this.options.itemCount && offset <= 0;
+    const isBottom = clientSize + offset + 1 >= scrollSize;
+    const direction =
+      offset < this.offset - 1
+        ? SCROLL_DIRECTION.FORWARD
+        : offset > this.offset + 1
+        ? SCROLL_DIRECTION.BACKWARD
+        : '';
+
+    this.offset = offset;
+
+    return { top: isTop, bottom: isBottom, offset, direction };
+  },
+
   _onUpdate: function () {
-    const items = this._getRenderingItems();
+    const items = this._getChildren();
 
     for (let i = 0; i < items.length; i += 1) {
-      const index = this._getItemIndex(items[i]);
-      if (index) this.sizes[index] = this._getItemSize(items[i]);
+      const index = this._getElementIndex(items[i]);
+      if (index) this.sizes[index] = this._getElementSize(items[i]);
     }
-
-    this.lastStart = this.range.start;
 
     let { start, front, end } = this._getRangeByOffset();
 
@@ -257,29 +260,24 @@ Virtual.prototype = {
   },
 
   _updateRange: function ({ start, end, front }) {
-    const behind = (this._getLength() - end) * this.averageSize;
-    const renderingSize = this._getOffsetByRange(start, end);
-
     this.range.start = start;
     this.range.front = front;
     this.range.end = end;
-    this.range.behind = behind;
-    this.range.total = Math.max(this.range.total, front + renderingSize + behind);
+    this.range.behind = (this._getLastIndex() - end) * this.averageSize;
 
     this._dispatchEvent('onUpdate', { ...this.range });
   },
 
   _getRangeByOffset: function () {
-    const { itemCount, ignoreSize } = this.options;
     const clientSize = this.getClientSize();
-    const realScrollOffset = this.offset - ignoreSize;
+    const realScrollOffset = this._getScrollOffset();
 
     let start = 0;
     let front = 0;
     let end = 0;
     let offset = 0;
 
-    while (end < itemCount) {
+    while (end < this.options.itemCount) {
       const size = this.getSize(end);
       if (offset + size >= realScrollOffset) {
         start = end;
@@ -291,14 +289,14 @@ Virtual.prototype = {
     }
 
     // calculate the end value based on the size of the visible area
-    while (end < itemCount) {
+    while (end < this.options.itemCount) {
       offset += this.getSize(end);
       end += 1;
       if (offset - front > clientSize) break;
     }
 
     this.averageSize = Math.round(offset / end);
-    end = Math.min(this._getLength(), end + 1);
+    end = Math.min(this._getLastIndex(), end + 1);
 
     // when the scroller above viewable area
     if (offset < realScrollOffset) {
@@ -317,38 +315,62 @@ Virtual.prototype = {
     return offset;
   },
 
-  _getLength: function () {
+  _getChildren: function () {
+    return Array.prototype.slice.call(this.el.children);
+  },
+
+  _getLastIndex: function () {
     return Math.max(0, this.options.itemCount - 1);
   },
 
-  _getItemSize: function (element) {
-    return element ? element[elementSize[this.options.direction]] : this.averageSize;
+  _getElementSize: function (element) {
+    return element ? element[offsetSize[this.options.direction]] : this.averageSize;
   },
 
-  _getItemIndex: function (element) {
+  _getElementIndex: function (element) {
     return element?.getAttribute(this.options.dataIndex) || null;
   },
 
   _getScrollElement: function (scroller) {
-    return (scroller instanceof Document && scroller.nodeType === 9) || scroller instanceof Window
-      ? document.scrollingElement || document.documentElement || document.body
-      : scroller;
+    if ((scroller instanceof Document && scroller.nodeType === 9) || scroller instanceof Window) {
+      this.useWindowScroll = true;
+      return document.scrollingElement || document.documentElement || document.body;
+    }
+
+    this.useWindowScroll = false;
+
+    return scroller;
   },
 
-  _getRenderingItems: function () {
-    return Array.prototype.slice.call(this.el.children);
+  _getScrollOffset: function() {
+    return this.getOffset() - this._getScrollStartOffset();
   },
 
-  _contentVisible: function () {
+  _getScrollStartOffset: function () {
+    let offset = this.options.ignoreSize;
+    if (this.useWindowScroll) {
+      let el = this.el;
+      do {
+        offset += el[offsetType[this.options.direction]];
+      } while ((el = el.parentNode) && el !== this.el.ownerDocument);
+    }
+
+    return offset;
+  },
+
+  _containerVisible: function () {
     return this.el.offsetHeight > 0 && this.el.offsetWidth > 0;
   },
 
   _dispatchEvent: function (event, params) {
     const callback = this.options[event];
-    if (typeof callback === 'function') {
-      callback(params);
-    }
+    typeof callback === 'function' && callback(params);
   },
+};
+
+Virtual.utils = {
+  debounce,
+  throttle,
 };
 
 export default Virtual;

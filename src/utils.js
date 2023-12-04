@@ -19,29 +19,24 @@ export function off(el, event, fn) {
 }
 
 export function throttle(fn, wait) {
-  let timeout = undefined;
-  let _arguments = arguments;
-  const result = function () {
-    const _this = this;
-    _arguments = arguments;
+  let timer = null;
 
-    if (timeout) {
-      return;
-    }
+  const result = function (...args) {
+    if (timer) return;
 
     if (wait <= 0) {
-      fn.apply(_this, _arguments);
+      fn.apply(this, args);
     } else {
-      timeout = setTimeout(function () {
-        timeout = undefined;
-        fn.apply(_this, _arguments);
+      timer = setTimeout(() => {
+        timer = undefined;
+        fn.apply(this, args);
       }, wait);
     }
   };
   result['cancel'] = function () {
-    if (timeout) {
-      clearTimeout(timeout);
-      timeout = undefined;
+    if (timer) {
+      clearTimeout(timer);
+      timer = null;
     }
   };
 
