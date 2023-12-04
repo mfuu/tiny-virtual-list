@@ -1,13 +1,15 @@
 declare class Virtual {
   public el: HTMLElement;
 
-  public options: Sortable.Options;
+  public options: Virtual.Options;
 
   /**
    * @param el The Parent which holds the list items.
    * @param options Options to customise the behavior of the virtual list.
    */
   constructor(el: HTMLElement, options: Virtual.Options);
+
+  static utils: Virtual.Utils;
 
   /**
    * Removes the virtual functionality completely.
@@ -16,7 +18,7 @@ declare class Virtual {
 
   /**
    * Get or set the option value, depending on whether the `value` is passed in.
-   * @param name a Sortable.Options property.
+   * @param name a Virtual.Options property.
    * @param value a value.
    */
   option<K extends keyof Virtual.Options>(name: K, value: Virtual.Options[K]): void;
@@ -70,7 +72,13 @@ declare namespace Virtual {
   export interface Options extends VirtualOptions {}
 
   export interface ScrollState {
+    /**
+     * scrolled to the top of list
+     */
     top: Boolean;
+    /**
+     * scrolled to the bottom of list
+     */
     bottom: Boolean;
     offset: Number;
     direction: 'forward' | 'backward' | '';
@@ -81,7 +89,6 @@ declare namespace Virtual {
     end: Number;
     front: Number;
     behind: Number;
-    render: Number;
   }
 
   export interface VirtualOptions {
@@ -92,10 +99,10 @@ declare namespace Virtual {
     scroller: HTMLElement;
 
     /**
-     * The unique key values of all items in the list.
-     * @defaults `[]`
+     * Total number of list items.
+     * @defaults `0`
      */
-    itemCount: any[];
+    itemCount: Number;
 
     /**
      * HTML data attributes.
@@ -137,6 +144,12 @@ declare namespace Virtual {
      */
     onUpdate?: (params: Range) => void;
   }
+
+  export interface Utils {
+    debounce<T extends (...args: any) => any>(fn: T, wait: Number): T & { cancel(): void };
+
+    throttle<T extends (...args: any) => any>(fn: T, wait: Number): T & { cancel(): void };
+  }
 }
 
-export = Sortable;
+export = Virtual;
