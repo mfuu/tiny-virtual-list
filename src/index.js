@@ -210,6 +210,7 @@ Virtual.prototype = {
     const params = this._getScrollParams();
 
     this.scrollDirection = params.direction;
+
     this._dispatchEvent('onScroll', params);
 
     // stop the calculation when scrolling front and start is `0`

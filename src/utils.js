@@ -33,6 +33,7 @@ export function throttle(fn, wait) {
       }, wait);
     }
   };
+
   result['cancel'] = function () {
     if (timer) {
       clearTimeout(timer);
