@@ -32,12 +32,12 @@ const offsetType = {
 
 /**
  * @class Virtual
- * @param {HTMLElement} el container
+ * @param {HTMLElement} el list wrapper
  * @param {Object} options
  */
 function Virtual(el, options) {
   if (!(el && el.nodeType && el.nodeType === 1)) {
-    throw `Virtual: \`el\` must be an HTMLElement, not ${{}.toString.call(el)}`;
+    throw `tiny-virtual-list: \`el\` must be an HTMLElement, not ${{}.toString.call(el)}`;
   }
 
   this.el = el;
@@ -81,7 +81,7 @@ Virtual.prototype = {
   },
 
   refresh() {
-    this._handleScroll();
+    this._updateWithoutScrolling();
   },
 
   option(key, value) {
@@ -166,16 +166,16 @@ Virtual.prototype = {
 
   _updateWithoutScrolling: function () {
     // not available in the case of `display: none` in window scroll
-    if (!this._containerVisible()) return;
+    if (!this._listWrapperVisible()) return;
 
     const items = this._getChildren();
     if (!items.length) return;
 
     const clientSize = this.getClientSize();
-    const realScrollOffset = Math.abs(this._getScrollOffset());
+    const realScrollOffset = this._getScrollOffset();
 
     let end = this.range.start;
-    let renderingSize = Math.max(0, this.range.front - realScrollOffset);
+    let renderingSize = Math.max(0, this.range.front - Math.abs(realScrollOffset));
 
     while (renderingSize < clientSize && end < this.options.itemCount) {
       const item = items[end - this.range.start];
@@ -200,33 +200,8 @@ Virtual.prototype = {
 
   _handleScroll: function () {
     // not available in the case of `display: none` in window scroll
-    if (!this._containerVisible()) return;
+    if (!this._listWrapperVisible()) return;
 
-    if (this.averageSize < 1) {
-      this._updateWithoutScrolling();
-      return;
-    }
-
-    const params = this._getScrollParams();
-
-    this.scrollDirection = params.direction;
-
-    this._dispatchEvent('onScroll', params);
-
-    // stop the calculation when scrolling front and start is `0`
-    // or when scrolling behind and end is maximum length
-    if (
-      !params.direction ||
-      (params.direction === SCROLL_DIRECTION.FORWARD && this.range.start === 0) ||
-      (params.direction === SCROLL_DIRECTION.BACKWARD && this.range.end === this._getLastIndex())
-    ) {
-      return;
-    }
-
-    this._onUpdate();
-  },
-
-  _getScrollParams: function () {
     const offset = this.getOffset();
     const clientSize = this.getClientSize();
     const scrollSize = this.getScrollSize();
@@ -241,11 +216,29 @@ Virtual.prototype = {
         : '';
 
     this.offset = offset;
+    this.scrollDirection = direction;
 
-    return { top: isTop, bottom: isBottom, offset, direction };
+    this._dispatchEvent('onScroll', { top: isTop, bottom: isBottom, offset, direction });
+
+    // stop the calculation when scrolling front and start is `0`
+    // or when scrolling behind and end is maximum length
+    if (
+      !direction ||
+      (direction === SCROLL_DIRECTION.FORWARD && this.range.start === 0) ||
+      (direction === SCROLL_DIRECTION.BACKWARD && this.range.end === this._getLastIndex())
+    ) {
+      return;
+    }
+
+    this._onUpdate();
   },
 
   _onUpdate: function () {
+    if (this.averageSize < 1) {
+      this._updateWithoutScrolling();
+      return;
+    }
+
     const items = this._getChildren();
 
     for (let i = 0; i < items.length; i += 1) {
@@ -343,7 +336,7 @@ Virtual.prototype = {
     return scroller;
   },
 
-  _getScrollOffset: function() {
+  _getScrollOffset: function () {
     return this.getOffset() - this._getScrollStartOffset();
   },
 
@@ -359,7 +352,7 @@ Virtual.prototype = {
     return offset;
   },
 
-  _containerVisible: function () {
+  _listWrapperVisible: function () {
     return this.el.offsetHeight > 0 && this.el.offsetWidth > 0;
   },
 

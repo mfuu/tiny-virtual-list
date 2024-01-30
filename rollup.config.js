@@ -9,7 +9,7 @@ const homepage = packageJson.homepage;
 
 const banner = `
 /*!
- * virtual-list v${version}
+ * tiny-virtual-list v${version}
  * open source under the MIT license
  * ${homepage}
  */
@@ -20,14 +20,14 @@ export default {
   output: [
     {
       format: 'umd',
-      file: 'dist/virtual-list.js',
+      file: 'dist/tiny-virtual-list.js',
       name: 'Virtual',
       sourcemap: false,
       banner: banner.replace(/\n/, ''),
     },
     {
       format: 'umd',
-      file: 'dist/virtual-list.min.js',
+      file: 'dist/tiny-virtual-list.min.js',
       name: 'Virtual',
       sourcemap: false,
       banner: banner.replace(/\n/, ''),

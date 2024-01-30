@@ -1,8 +1,8 @@
 {
-  "name": "virtual-list-core",
+  "name": "tiny-virtual-list",
   "version": "0.0.1",
   "description": "JS library for virtual list",
-  "main": "dist/virtual-list.min.js",
+  "main": "dist/tiny-virtual-list.min.js",
   "types": "types/index.d.ts",
   "files": [
     "dist",
@@ -14,7 +14,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/mfuu/virtual-list-core.git"
+    "url": "git+https://github.com/mfuu/tiny-virtual-list.git"
   },
   "keywords": [
     "list",
@@ -24,9 +24,9 @@
   "author": "mfuu",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/mfuu/virtual-list-core/issues"
+    "url": "https://github.com/mfuu/tiny-virtual-list/issues"
   },
-  "homepage": "https://github.com/mfuu/virtual-list-core#readme",
+  "homepage": "https://github.com/mfuu/tiny-virtual-list#readme",
   "devDependencies": {
     "@babel/core": "^7.18.10",
     "@babel/preset-env": "^7.18.10",
