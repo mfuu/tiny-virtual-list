@@ -1,15 +1,98 @@
+export interface ScrollEvent {
+  /**
+   * scrolled to the top of list
+   */
+  top: boolean;
+  /**
+   * scrolled to the bottom of list
+   */
+  bottom: boolean;
+  offset: number;
+  direction: 'front' | 'behind' | '';
+}
+
+export interface Range {
+  start: number;
+  end: number;
+  total: number;
+  front: number;
+  behind: number;
+}
+
+export interface VirtualOptions {
+  /**
+   * Total number of list items.
+   * @defaults `0`
+   */
+  count: number;
+
+  /**
+   * Render range buffer.
+   * @defaults `1`
+   */
+  buffer: number;
+
+  /**
+   * Virtual list scrolling element.
+   * @defaults `undefined`
+   */
+  scroller: HTMLElement | Document | Window;
+
+  /**
+   * Specifying the scrolling direction of the virtual list.
+   * @defaults `vertical`
+   */
+  direction?: 'vertical' | 'horizontal';
+
+  /**
+   * debounce time on scroll.
+   * @defaults `null`
+   */
+  debounceTime?: number;
+
+  /**
+   * throttle time on scroll.
+   * @defaults `null`
+   */
+  throttleTime?: number;
+
+  /**
+   * Virtual list is scrolled.
+   */
+  onScroll?: (params: ScrollEvent) => void;
+
+  /**
+   * Rendering parameters of the virtual list changed.
+   */
+  onUpdate?: (params: Range) => void;
+}
+
+export interface Utils {
+  /**
+   * @param fn callback function
+   * @param wait debounce time
+   */
+  debounce<T extends (...args: any) => any>(fn: T, wait: number): T & { cancel(): void };
+
+  /**
+   * @param fn callback function
+   * @param wait throttle time
+   */
+  throttle<T extends (...args: any) => any>(fn: T, wait: number): T & { cancel(): void };
+}
+
 declare class Virtual {
   public el: HTMLElement;
 
-  public options: Virtual.Options;
+  public options: VirtualOptions;
 
   /**
    * @param el The Parent which holds the list items.
    * @param options Options to customise the behavior of the virtual list.
    */
-  constructor(el: HTMLElement, options: Virtual.Options);
+  constructor(el: HTMLElement, options: VirtualOptions);
 
-  static utils: Virtual.Utils;
+  static utils: Utils;
 
   /**
    * Removes the virtual functionality completely.
@@ -18,37 +101,37 @@ declare class Virtual {
 
   /**
    * Get or set the option value, depending on whether the `value` is passed in.
-   * @param name a Virtual.Options property.
+   * @param name a VirtualOptions property.
    * @param value a value.
    */
-  option<K extends keyof Virtual.Options>(name: K, value: Virtual.Options[K]): void;
-  option<K extends keyof Virtual.Options>(name: K): Virtual.Options[K];
+  option<K extends keyof VirtualOptions>(name: K, value: VirtualOptions[K]): void;
+  option<K extends keyof VirtualOptions>(name: K): VirtualOptions[K];
 
   /**
-   * Recalculate the range. The callback function `onUpdate` will be triggered after the calculation is completed.
+   * Recalculate the range.
    */
   refresh(): void;
 
   /**
-   * Git item size by `index`.
-   * @param index
+   * Git item size by index.
+   * @param index list item's index
    */
-  getSize(index: Number): Number;
+  getSize(index: number): number;
 
   /**
    * Get the current scroll size (scrollLeft / scrollTop).
    */
-  getOffset(): Number;
+  getOffset(): number;
 
   /**
    * Get the scroll element's size (clientWidth / clientHeight).
    */
-  getClientSize(): Number;
+  getClientSize(): number;
 
   /**
    * Get the current scrolling distance (scrollWidth / scrollHeight).
    */
-  getScrollSize(): Number;
+  getScrollSize(): number;
 
   /**
    * Scroll to the bottom of the current scroll element.
@@ -57,99 +140,15 @@ declare class Virtual {
 
   /**
    * Scroll to the specified offset of the current scroll element.
-   * @param offset
+   * @param offset target offset scroll to
    */
-  scrollToOffset(offset: Number): void;
+  scrollToOffset(offset: number): void;
 
   /**
    * Scroll to the specified index position.
-   * @param index
+   * @param index target index scroll to
    */
-  scrollToIndex(index: Number): void;
+  scrollToIndex(index: number): void;
 }
 
-declare namespace Virtual {
-  export interface Options extends VirtualOptions {}
-
-  export interface ScrollState {
-    /**
-     * scrolled to the top of list
-     */
-    top: Boolean;
-    /**
-     * scrolled to the bottom of list
-     */
-    bottom: Boolean;
-    offset: Number;
-    direction: 'forward' | 'backward' | '';
-  }
-
-  export interface Range {
-    start: Number;
-    end: Number;
-    front: Number;
-    behind: Number;
-  }
-
-  export interface VirtualOptions {
-    /**
-     * Virtual list scrolling element.
-     * @defaults `null`
-     */
-    scroller: HTMLElement;
-
-    /**
-     * Total number of list items.
-     * @defaults `0`
-     */
-    itemCount: Number;
-
-    /**
-     * HTML data attributes.
-     * @defaults `'data-index'`
-     */
-    dataIndex?: String;
-
-    /**
-     * Top / Left size to be ignored.
-     * @defaults `0`
-     */
-    ignoreSize?: Number;
-
-    /**
-     * Specifying the scrolling direction of the virtual list.
-     * @defaults `vertical`
-     */
-    direction?: 'vertical' | 'horizontal';
-
-    /**
-     * debounce time on scroll.
-     * @defaults `null`
-     */
-    debounceTime?: Number;
-
-    /**
-     * throttle time on scroll.
-     * @defaults `null`
-     */
-    throttleTime?: Number;
-
-    /**
-     * Triggered when the virtual list is scrolled.
-     */
-    onScroll?: (params: ScrollState) => void;
-
-    /**
-     * Triggered when the rendering parameters of the virtual list change.
-     */
-    onUpdate?: (params: Range) => void;
-  }
-
-  export interface Utils {
-    debounce<T extends (...args: any) => any>(fn: T, wait: Number): T & { cancel(): void };
-
-    throttle<T extends (...args: any) => any>(fn: T, wait: Number): T & { cancel(): void };
-  }
-}
-
-export = Virtual;
+export default Virtual;

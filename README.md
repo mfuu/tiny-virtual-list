@@ -1,18 +1,18 @@
-# virtual-list-core
+# tiny-virtual-list
 
-[![npm](https://img.shields.io/npm/v/virtual-list-core.svg)](https://www.npmjs.com/package/virtual-list-core)  [![npm](https://img.shields.io/npm/dm/virtual-list-core.svg)](https://npm-stat.com/charts.html?package=virtual-list-core)  [![Software License](https://img.shields.io/badge/license-MIT-brightgreen.svg)](LICENSE)
+[![npm](https://img.shields.io/npm/v/tiny-virtual-list.svg)](https://www.npmjs.com/package/tiny-virtual-list)  [![npm](https://img.shields.io/npm/dm/tiny-virtual-list.svg)](https://npm-stat.com/charts.html?package=tiny-virtual-list)  [![Software License](https://img.shields.io/badge/license-MIT-brightgreen.svg)](LICENSE)
 
 
 A JS library for virtual list
 
-### [Live Demo](https://mfuu.github.io/virtual-list-core/)
+### [Live Demo](https://mfuu.github.io/tiny-virtual-list/)
 
 ## Usage
 
 **Install**
 
 ```shell
-npm i virtual-list-core --save
+npm i tiny-virtual-list
 ```
 
 **HTML**
@@ -31,16 +31,16 @@ npm i virtual-list-core --save
 **JavaScript**
 
 ```js
-import Virtual from 'virtual-list-core';
+import Virtual from 'tiny-virtual-list';
 
 const container = document.getElementById('container');
 const scroller = document.getElementById('scroller');
 
 new Virtual(container, {
+  count: 100,
   scroller: scroller,
-  itemCount: 100,
 
-  onUpdate: ({ start, end, front, behind }) => {
+  onUpdate: ({ start, end, total, front, behind }) => {
     container.innerHTML = '';
 
     for(let i = start; i <= end; i++) {
@@ -57,10 +57,9 @@ new Virtual(container, {
 
 ```js
 new Virtual(element, {
-  scroller: null | HTMLElement | window | document, // Virtual list scrolling element
-  itemCount: null, // Total number of list items
-  ignoreSize: 0, // Top height value to be ignored
-  dataIndex: 'data-index', // HTML data attributes
+  count: 0, // Total number of list items
+  buffer: 1, // Render range buffer.
+  scroller: HTMLElement | window | document, // Virtual list scrolling element
   direction: 'vertical', // `vertical/horizontal`, scroll direction
   debounceTime: 0, // debounce time on scroll
   throttleTime: 0, // throttle time on scroll
@@ -69,7 +68,6 @@ new Virtual(element, {
     // Triggered when the rendering params changed
   },
   onScroll: ({ offset, top, bottom, direction }) => {
-    // Triggered when the virtual list scroller is scrolled
     if (top === true) {
       // scrolled to the top of list
     }
@@ -94,16 +92,16 @@ virtual.option(key, value?);
 // Recalculate the range
 virtual.refresh();
 
-// Git item size by `index`
+// Git item size by index
 virtual.getSize(index: Number);
 
-// Get the current scroll size (scrollLeft / scrollTop)
+// Get the current scroll offset (scrollLeft / scrollTop)
 virtual.getOffset();
 
 // Get the scroll element's size (offsetWidth / offsetHeight)
 virtual.getClientSize();
 
-// Get the current scrolling distance (scrollWidth / scrollHeight)
+// Get the current scroll size (scrollWidth / scrollHeight)
 virtual.getScrollSize();
 
 // Scroll to bottom of list
