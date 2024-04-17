@@ -59,12 +59,12 @@ export interface VirtualOptions {
   /**
    * Virtual list is scrolled.
    */
-  onScroll?: (params: ScrollEvent) => void;
+  onScroll?: (event: ScrollEvent) => void;
 
   /**
    * Rendering parameters of the virtual list changed.
    */
-  onUpdate?: (params: Range) => void;
+  onUpdate?: (range: Range) => void;
 }
 
 export interface Utils {
@@ -108,7 +108,7 @@ declare class Virtual {
   option<K extends keyof VirtualOptions>(name: K): VirtualOptions[K];
 
   /**
-   * Recalculate the range.
+   * Recalculate the range. Call this method after the page is re-rendered.
    */
   refresh(): void;
 

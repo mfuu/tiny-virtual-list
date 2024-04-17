@@ -103,12 +103,10 @@ Virtual.prototype = {
 
       if (!size) continue;
 
-      const prev = this.sizes[index - 1];
-      const front = prev ? prev.behind : 0;
+      const front = this.sizes[index - 1]?.behind || 0;
       const behind = front + size;
 
       this.sizes[index] = { size, front, behind };
-
       renderSize += size;
       index += 1;
     }
@@ -119,7 +117,7 @@ Virtual.prototype = {
     );
 
     this._updateSizes();
-    this._updateRange(true);
+    this._updateRange();
   },
 
   getSize(index) {
@@ -146,7 +144,7 @@ Virtual.prototype = {
     if (index > this._getLastIndex()) {
       this.scrollToBottom();
     } else {
-      const offset = this.sizes[index]?.front || 0;
+      const offset = this.sizes[index].front;
       const startOffset = this._getScrollStartOffset();
       this.scrollToOffset(offset + startOffset);
     }
@@ -167,7 +165,7 @@ Virtual.prototype = {
     }, 5);
   },
 
-  _updateScrollElement: function () {
+  _updateScrollElement() {
     const { scroller } = this.options;
     if ((scroller instanceof Document && scroller.nodeType === 9) || scroller instanceof Window) {
       this.scrollEl = document.scrollingElement || document.documentElement || document.body;
@@ -176,7 +174,7 @@ Virtual.prototype = {
     }
   },
 
-  _updateOnScrollFunction: function () {
+  _updateOnScrollFunction() {
     const { debounceTime, throttleTime } = this.options;
     if (debounceTime) {
       this._onScroll = debounce(() => this._handleScroll(), debounceTime);
@@ -187,11 +185,11 @@ Virtual.prototype = {
     }
   },
 
-  _addScrollEventListener: function () {
+  _addScrollEventListener() {
     this.options.scroller && on(this.options.scroller, 'scroll', this._onScroll);
   },
 
-  _handleScroll: function () {
+  _handleScroll() {
     const offset = this.getOffset();
     const clientSize = this.getClientSize();
     const scrollSize = this.getScrollSize();
@@ -222,7 +220,42 @@ Virtual.prototype = {
     this._updateRange();
   },
 
-  _updateRange: function (forceUpdate) {
+  _updateRange() {
+    if (this.options.count === 0 || this.el.offsetWidth === 0 || this.el.offsetHeight === 0) {
+      return;
+    }
+
+    !this.sizes.length && this.refresh();
+
+    const { start, end } = this._getRangeByOffset();
+
+    if (start === this.range.start && end === this.range.end) return;
+
+    const total = this._getTotalSize();
+    const front = this.sizes[start].front;
+    const behind = total - this.sizes[end].behind;
+
+    this.range.start = start;
+    this.range.end = end;
+    this.range.total = total;
+    this.range.front = front;
+    this.range.behind = behind;
+    this._dispatchEvent('onUpdate', this.range);
+  },
+
+  _updateSizes() {
+    this.sizes.length = this.options.count;
+
+    for (let i = this.range.end + 1; i < this.options.count; i++) {
+      const size = this.getSize(i);
+      const front = this.sizes[i - 1]?.behind || 0;
+      const behind = front + size;
+
+      this.sizes[i] = { size, front, behind };
+    }
+  },
+
+  _getRangeByOffset() {
     const clientSize = this.getClientSize();
     const realOffset = this.offset - this._getScrollStartOffset();
 
@@ -230,55 +263,32 @@ Virtual.prototype = {
     let end = start;
     let offset = 0;
 
-    while (end < this.options.count) {
+    const { count, buffer } = this.options;
+    while (end < count) {
       offset += this.sizes[end].size;
       end += 1;
       if (offset > clientSize) break;
     }
 
-    start = Math.max(0, start - this.options.buffer);
-    end = Math.min(this._getLastIndex(), end + this.options.buffer);
+    start = Math.max(0, start - buffer);
+    end = Math.min(this._getLastIndex(), end + buffer);
 
-    if (start !== this.range.start || end !== this.range.end) {
-      const total = this._getTotalSize();
-      const front = this.sizes[start].front;
-      const behind = total - this.sizes[end].behind;
-
-      this.range.start = start;
-      this.range.end = end;
-      this.range.total = total;
-      this.range.front = front;
-      this.range.behind = behind;
-      this._dispatchEvent('onUpdate', this.range);
-    }
+    return { start, end };
   },
 
-  _updateSizes: function () {
-    this.sizes.length = this.options.count;
-
-    for (let i = this.range.end + 1; i < this.options.count; i++) {
-      const size = this.getSize(i);
-      const prev = this.sizes[i - 1];
-      const front = prev ? prev.behind : 0;
-      const behind = front + size;
-
-      this.sizes[i] = { size, front, behind };
-    }
-  },
-
-  _getTotalSize: function () {
+  _getTotalSize() {
     return this.sizes[this._getLastIndex()]?.behind || 0;
   },
 
-  _getLastIndex: function () {
+  _getLastIndex() {
     return Math.max(0, this.options.count - 1);
   },
 
-  _getElementSize: function (element) {
+  _getElementSize(element) {
     return Math.round(element[offsetSize[this.options.direction]]);
   },
 
-  _getIndexByOffset: function (offset) {
+  _getIndexByOffset(offset) {
     let low = 0;
     let high = this.sizes.length - 1;
 
@@ -298,7 +308,7 @@ Virtual.prototype = {
     return Math.max(high, 0);
   },
 
-  _getScrollStartOffset: function () {
+  _getScrollStartOffset() {
     let offset = 0;
 
     const { scroller, direction } = this.options;
@@ -313,10 +323,15 @@ Virtual.prototype = {
     return offset;
   },
 
-  _dispatchEvent: function (event, params) {
+  _dispatchEvent(event, params) {
     const callback = this.options[event];
     typeof callback === 'function' && callback(params);
   },
+};
+
+Virtual.utils = {
+  debounce,
+  throttle,
 };
 
 export default Virtual;
