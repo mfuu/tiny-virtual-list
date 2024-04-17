@@ -30,15 +30,15 @@
   "devDependencies": {
     "@babel/core": "^7.18.10",
     "@babel/preset-env": "^7.18.10",
+    "@rollup/plugin-babel": "^6.0.4",
+    "@rollup/plugin-commonjs": "^25.0.7",
+    "@rollup/plugin-node-resolve": "^15.2.3",
+    "@rollup/plugin-terser": "^0.4.4",
     "babel-eslint": "^10.1.0",
     "eslint": "^6.2.1",
     "eslint-config-prettier": "^6.15.0",
     "eslint-plugin-prettier": "^3.4.1",
     "prettier": "^2.8.4",
-    "rollup": "^1.32.1",
-    "rollup-plugin-babel": "^4.4.0",
-    "rollup-plugin-commonjs": "^10.1.0",
-    "rollup-plugin-node-resolve": "^5.2.0",
-    "rollup-plugin-uglify": "^6.0.4"
+    "rollup": "^2.79.1"
   }
 }
