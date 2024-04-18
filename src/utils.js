@@ -28,7 +28,7 @@ export function throttle(fn, wait) {
       fn.apply(this, args);
     } else {
       timer = setTimeout(() => {
-        timer = undefined;
+        timer = null;
         fn.apply(this, args);
       }, wait);
     }

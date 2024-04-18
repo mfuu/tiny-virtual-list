@@ -3,11 +3,20 @@ export interface ScrollEvent {
    * scrolled to the top of list
    */
   top: boolean;
+
   /**
    * scrolled to the bottom of list
    */
   bottom: boolean;
+
+  /**
+   * scroll top/left
+   */
   offset: number;
+
+  /**
+   * scroll direction
+   */
   direction: 'front' | 'behind' | '';
 }
 
@@ -20,6 +29,12 @@ export interface Range {
 }
 
 export interface VirtualOptions {
+  /**
+   * Estimated size.
+   * @defaults `0`
+   */
+  size: number;
+
   /**
    * Total number of list items.
    * @defaults `0`
@@ -46,23 +61,23 @@ export interface VirtualOptions {
 
   /**
    * debounce time on scroll.
-   * @defaults `null`
+   * @defaults `0`
    */
   debounceTime?: number;
 
   /**
    * throttle time on scroll.
-   * @defaults `null`
+   * @defaults `0`
    */
   throttleTime?: number;
 
   /**
-   * Virtual list is scrolled.
+   * The `options.scroller` element is scrolled.
    */
   onScroll?: (event: ScrollEvent) => void;
 
   /**
-   * Rendering parameters of the virtual list changed.
+   * The rendering range of the virtual list changes.
    */
   onUpdate?: (range: Range) => void;
 }
@@ -108,7 +123,7 @@ declare class Virtual {
   option<K extends keyof VirtualOptions>(name: K): VirtualOptions[K];
 
   /**
-   * Recalculate the range. Call this method after the page is re-rendered.
+   * Recalculate the range. call this method after the page is re-rendered.
    */
   refresh(): void;
 
