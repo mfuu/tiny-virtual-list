@@ -10,6 +10,21 @@
   (global = typeof globalThis !== 'undefined' ? globalThis : global || self, global.Virtual = factory());
 })(this, (function () { 'use strict';
 
+  function _extends() {
+    _extends = Object.assign ? Object.assign.bind() : function (target) {
+      for (var i = 1; i < arguments.length; i++) {
+        var source = arguments[i];
+        for (var key in source) {
+          if (Object.prototype.hasOwnProperty.call(source, key)) {
+            target[key] = source[key];
+          }
+        }
+      }
+      return target;
+    };
+    return _extends.apply(this, arguments);
+  }
+
   function on(el, event, fn) {
     if (window.addEventListener) {
       el.addEventListener(event, fn, false);
@@ -40,7 +55,7 @@
         fn.apply(this, args);
       } else {
         timer = setTimeout(function () {
-          timer = undefined;
+          timer = null;
           fn.apply(_this, args);
         }, wait);
       }
@@ -90,14 +105,15 @@
       throw "tiny-virtual-list: `el` must be an HTMLElement, not ".concat({}.toString.call(el));
     }
     this.el = el;
-    this.options = options = Object.assign({}, options);
+    this.options = options = _extends({}, options);
     var defaults = {
+      size: 0,
       count: 0,
       buffer: 1,
-      scroller: null,
+      scroller: undefined,
       direction: 'vertical',
-      debounceTime: null,
-      throttleTime: null
+      debounceTime: 0,
+      throttleTime: 0
     };
 
     // Set default options
@@ -137,41 +153,29 @@
       }
     },
     refresh: function refresh() {
-      if (this.el.offsetHeight === 0 || this.el.offsetWidth === 0) return;
+      if (this._invisible()) return;
       var elements = Array.prototype.slice.call(this.el.children);
       if (!elements.length) return;
       var firstElement = elements[0];
 
       // size difference
-      if (this.scrollDirection === SCROLL_DIRECTION.FRONT) {
+      if (this.isFront()) {
         var realSize = this._getElementSize(firstElement);
         var diffSize = realSize - this.getSize(this.range.start);
         this.scrollToOffset(this.offset + diffSize);
       }
-      var renderSize = 0;
-      var index = this.range.start;
-      for (var i = 0; i < elements.length; i++) {
-        var _this$sizes;
-        var size = this._getElementSize(elements[i]);
-        if (!size) continue;
-        var front = ((_this$sizes = this.sizes[index - 1]) === null || _this$sizes === void 0 ? void 0 : _this$sizes.behind) || 0;
-        var behind = front + size;
-        this.sizes[index] = {
-          size: size,
-          front: front,
-          behind: behind
-        };
-        renderSize += size;
-        index += 1;
-      }
-      var averageSize = renderSize / (index - this.range.start);
-      this.averageSize = Math.round(this.averageSize ? (averageSize + this.averageSize) / 2 : averageSize);
-      this._updateSizes();
+      this._updateSizes(elements);
       this._updateRange();
+    },
+    isFront: function isFront() {
+      return this.scrollDirection === SCROLL_DIRECTION.FRONT;
+    },
+    isBehind: function isBehind() {
+      return this.scrollDirection === SCROLL_DIRECTION.BEHIND;
     },
     getSize: function getSize(index) {
       var _this$sizes$index;
-      return ((_this$sizes$index = this.sizes[index]) === null || _this$sizes$index === void 0 ? void 0 : _this$sizes$index.size) || this.averageSize;
+      return ((_this$sizes$index = this.sizes[index]) === null || _this$sizes$index === void 0 ? void 0 : _this$sizes$index.size) || this.options.size || this.averageSize;
     },
     getOffset: function getOffset() {
       return this.scrollEl[scrollDir[this.options.direction]];
@@ -257,20 +261,20 @@
 
       // stop the calculation when scrolling front and start is `0`
       // or when scrolling behind and end is maximum length
-      if (!direction || direction === SCROLL_DIRECTION.FRONT && this.range.start === 0 || direction === SCROLL_DIRECTION.BEHIND && this.range.end === this._getLastIndex()) {
+      if (!direction || this.isFront() && this.range.start === 0 || this.isBehind() && this.range.end === this._getLastIndex()) {
         return;
       }
       this._updateRange();
     },
     _updateRange: function _updateRange() {
-      if (this.options.count === 0 || this.el.offsetWidth === 0 || this.el.offsetHeight === 0) {
-        return;
-      }
+      if (this.options.count === 0 || this._invisible()) return;
       !this.sizes.length && this.refresh();
       var _this$_getRangeByOffs = this._getRangeByOffset(),
         start = _this$_getRangeByOffs.start,
         end = _this$_getRangeByOffs.end;
-      if (start === this.range.start && end === this.range.end) return;
+      if (start === this.range.start && end === this.range.end || this.isFront() && start > this.range.start || this.isBehind() && start < this.range.start) {
+        return;
+      }
       var total = this._getTotalSize();
       var front = this.sizes[start].front;
       var behind = total - this.sizes[end].behind;
@@ -281,19 +285,47 @@
       this.range.behind = behind;
       this._dispatchEvent('onUpdate', this.range);
     },
-    _updateSizes: function _updateSizes() {
-      this.sizes.length = this.options.count;
-      for (var i = this.range.end + 1; i < this.options.count; i++) {
-        var _this$sizes2;
-        var size = this.getSize(i);
-        var front = ((_this$sizes2 = this.sizes[i - 1]) === null || _this$sizes2 === void 0 ? void 0 : _this$sizes2.behind) || 0;
+    _updateSizes: function _updateSizes(elements) {
+      var renderSize = 0;
+      var index = this.range.start;
+      for (var i = 0; i < elements.length; i++) {
+        var _this$sizes;
+        var size = this._getElementSize(elements[i]);
+        if (!size) continue;
+        var front = ((_this$sizes = this.sizes[index - 1]) === null || _this$sizes === void 0 ? void 0 : _this$sizes.behind) || 0;
         var behind = front + size;
-        this.sizes[i] = {
+        this.sizes[index] = {
           size: size,
           front: front,
           behind: behind
         };
+        renderSize += size;
+        index += 1;
       }
+      var averageSize = renderSize / (index - this.range.start);
+      this.averageSize = Math.round(this.averageSize ? (averageSize + this.averageSize) / 2 : averageSize);
+      this.sizes.length = this.options.count;
+      for (var _i = this.range.end + 1; _i < this.options.count; _i++) {
+        var _this$sizes2;
+        var _size = this.getSize(_i);
+        var _front = ((_this$sizes2 = this.sizes[_i - 1]) === null || _this$sizes2 === void 0 ? void 0 : _this$sizes2.behind) || 0;
+        var _behind = _front + _size;
+        this.sizes[_i] = {
+          size: _size,
+          front: _front,
+          behind: _behind
+        };
+      }
+    },
+    _getTotalSize: function _getTotalSize() {
+      var _this$sizes$this$_get;
+      return ((_this$sizes$this$_get = this.sizes[this._getLastIndex()]) === null || _this$sizes$this$_get === void 0 ? void 0 : _this$sizes$this$_get.behind) || 0;
+    },
+    _getLastIndex: function _getLastIndex() {
+      return Math.max(0, this.options.count - 1);
+    },
+    _getElementSize: function _getElementSize(element) {
+      return Math.round(element[offsetSize[this.options.direction]]);
     },
     _getRangeByOffset: function _getRangeByOffset() {
       var clientSize = this.getClientSize();
@@ -316,16 +348,6 @@
         end: end
       };
     },
-    _getTotalSize: function _getTotalSize() {
-      var _this$sizes$this$_get;
-      return ((_this$sizes$this$_get = this.sizes[this._getLastIndex()]) === null || _this$sizes$this$_get === void 0 ? void 0 : _this$sizes$this$_get.behind) || 0;
-    },
-    _getLastIndex: function _getLastIndex() {
-      return Math.max(0, this.options.count - 1);
-    },
-    _getElementSize: function _getElementSize(element) {
-      return Math.round(element[offsetSize[this.options.direction]]);
-    },
     _getIndexByOffset: function _getIndexByOffset(offset) {
       var low = 0;
       var high = this.sizes.length - 1;
@@ -343,7 +365,7 @@
           high = middle - 1;
         }
       }
-      return Math.max(high, 0);
+      return high > 0 ? high : 0;
     },
     _getScrollStartOffset: function _getScrollStartOffset() {
       var offset = 0;
@@ -361,6 +383,9 @@
     _dispatchEvent: function _dispatchEvent(event, params) {
       var callback = this.options[event];
       typeof callback === 'function' && callback(params);
+    },
+    _invisible: function _invisible() {
+      return this.el.offsetWidth === 0 || this.el.offsetHeight === 0;
     }
   };
   Virtual.utils = {
