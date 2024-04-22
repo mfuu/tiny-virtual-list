@@ -33,7 +33,7 @@ export interface VirtualOptions {
    * Estimated size.
    * @defaults `0`
    */
-  size: number;
+  size?: number;
 
   /**
    * Total number of list items.
@@ -45,7 +45,7 @@ export interface VirtualOptions {
    * Render range buffer.
    * @defaults `1`
    */
-  buffer: number;
+  buffer?: number;
 
   /**
    * Virtual list scrolling element.
@@ -102,11 +102,20 @@ declare class Virtual {
   public options: VirtualOptions;
 
   /**
-   * @param el The Parent which holds the list items.
+   * @param el The Parent which holds the virtual list items.
    * @param options Options to customise the behavior of the virtual list.
    */
   constructor(el: HTMLElement, options: VirtualOptions);
 
+  /**
+   * Public methods exposed by Virtual
+   * @example
+   * import virtual from 'tiny-virtual-list';
+   *
+   * virtual.utils.debounce(fn, 0);
+   *
+   * virtual.utils.throttle(fn, 0);
+   */
   static utils: Utils;
 
   /**
@@ -123,9 +132,25 @@ declare class Virtual {
   option<K extends keyof VirtualOptions>(name: K): VirtualOptions[K];
 
   /**
-   * Recalculate the range. call this method after the page is re-rendered.
+   * Call this method after the list is re-rendered.
    */
   refresh(): void;
+
+  /**
+   * Recalculate the range.
+   * @param start range's start
+   */
+  updateRange(start?: number): void;
+
+  /**
+   * Listen to the scrolling events of the scroller.
+   */
+  addScrollEventListener(): void;
+
+  /**
+   * Remove the scroll listener of the scroller.
+   */
+  removeScrollEventListener(): void;
 
   /**
    * Git item size by index.

@@ -57,6 +57,7 @@ new Virtual(container, {
 
 ```js
 new Virtual(element, {
+  size: 0, // estimated size
   count: 0, // Total number of list items
   buffer: 1, // Render range buffer.
   scroller: HTMLElement | window | document, // Virtual list scrolling element
@@ -65,7 +66,7 @@ new Virtual(element, {
   throttleTime: 0, // throttle time on scroll
 
   onUpdate: (range) => {
-    // Triggered when the rendering params changed
+    // rendering params changed
   },
   onScroll: ({ offset, top, bottom, direction }) => {
     if (top === true) {
@@ -89,8 +90,17 @@ let virtual = new Virtual();
 // Get or set the option value, depending on whether the `value` is passed in
 virtual.option(key, value?);
 
-// Recalculate the range
+// Update sizes
 virtual.refresh();
+
+// Recalculate the range
+virtual.updateRange(start?);
+
+// Listen to the scrolling events of the scroller
+virtual.addScrollEventListener();
+
+// Remove the scroll listener of the scroller
+virtual.removeScrollEventListener();
 
 // Git item size by index
 virtual.getSize(index: Number);
