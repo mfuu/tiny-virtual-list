@@ -1,5 +1,7 @@
 import { on, off, debounce, throttle } from './utils';
 
+const observeConfig = { attributes: false, childList: true, subtree: false };
+
 const DIRECTION = {
   FRONT: 'front',
   BEHIND: 'behind',
@@ -56,14 +58,19 @@ function Virtual(el, options) {
 
   this._updateScrollElement();
   this._updateOnScrollFunction();
-  this.addScrollEventListener();
 
   this.refresh();
   this.updateRange();
+  this.addScrollEventListener();
 }
 
 Virtual.prototype = {
   constructor: Virtual,
+
+  destroy() {
+    this.removeScrollEventListener();
+    this.observer?.disconnect();
+  },
 
   option(key, value) {
     if (value === void 0) return this.options[key];
@@ -99,12 +106,13 @@ Virtual.prototype = {
     }
 
     this._updateSizes(elements);
+    this._updateAfterEndSizes();
   },
 
   updateRange(start) {
     start = start === void 0 ? this.range.start : start;
-    let end = this._getEndByStart(start);
 
+    const end = this._getEndByStart(start);
     const total = this._getTotalSize();
     const front = this._getPosition(start, DIRECTION.FRONT);
     const behind = total - this._getPosition(end, DIRECTION.BEHIND);
@@ -128,7 +136,7 @@ Virtual.prototype = {
   },
 
   getSize(index) {
-    return (this.sizes[index] && this.sizes[index].size) || this.options.size || this.averageSize;
+    return this.sizes[index]?.size || this.options.size || this.averageSize;
   },
 
   getOffset() {
@@ -178,6 +186,16 @@ Virtual.prototype = {
 
   removeScrollEventListener() {
     this.options.scroller && off(this.options.scroller, 'scroll', this._onScroll);
+  },
+
+  _installObserve() {
+    const MutationObserver =
+      window.MutationObserver || window.WebKitMutationObserver || window.MozMutationObserver;
+
+    if (MutationObserver) {
+      this.observer = new MutationObserver(() => this.refresh());
+      this.observer.observe(this.el, observeConfig);
+    }
   },
 
   _updateScrollElement() {
@@ -262,12 +280,12 @@ Virtual.prototype = {
     this.averageSize = Math.round(
       this.averageSize ? (averageSize + this.averageSize) / 2 : averageSize
     );
-
-    this._updateAfterEndSizes();
   },
 
   _updateAfterEndSizes() {
     this.sizes.length = this.options.count;
+
+    if (this.range.end >= this.options.count) return;
 
     for (let i = this.range.end + 1; i < this.options.count; i++) {
       const size = this.getSize(i);

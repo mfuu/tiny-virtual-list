@@ -87,6 +87,9 @@ let virtual = new Virtual();
 ```
 
 ```js
+// Removes the virtual functionality completely
+virtual.destroy();
+
 // Get or set the option value, depending on whether the `value` is passed in
 virtual.option(key, value?);
 
