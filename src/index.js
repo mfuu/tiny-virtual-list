@@ -1,5 +1,7 @@
 import { on, off, debounce, throttle } from './utils';
 
+const observeConfig = { attributes: false, childList: true, subtree: false };
+
 const DIRECTION = {
   FRONT: 'front',
   BEHIND: 'behind',
@@ -54,19 +56,25 @@ function Virtual(el, options) {
   this.averageSize = 0;
   this.scrollDirection = '';
 
+  this._installObserve();
   this._updateScrollElement();
   this._updateOnScrollFunction();
-  this.addScrollEventListener();
 
-  this.refresh();
-  this.updateRange();
+  this.addScrollEventListener();
 }
 
 Virtual.prototype = {
   constructor: Virtual,
 
+  destroy() {
+    this.removeScrollEventListener();
+    this.observer?.disconnect();
+  },
+
   option(key, value) {
-    if (value === void 0) return this.options[key];
+    if (value === void 0) {
+      return this.options[key];
+    }
 
     const oldValue = this.options[key];
     this.options[key] = value;
@@ -92,31 +100,37 @@ Virtual.prototype = {
     const firstElement = elements[0];
 
     // size difference
-    if (this.isFront()) {
+    if (this.isFront() && this.isScrolling) {
       const realSize = this._getElementSize(firstElement);
       const diffSize = realSize - this.getSize(this.range.start);
       this.scrollToOffset(this.offset + diffSize);
     }
 
-    this._updateSizes(elements);
+    this._updateElementSizes(elements);
+    this._updateAfterEndSizes();
   },
 
   updateRange(start) {
     start = start === void 0 ? this.range.start : start;
-    let end = this._getEndByStart(start);
 
-    const total = this._getTotalSize();
+    const lastIndex = this._getLastIndex();
+    const end = this._getEndByStart(start);
     const front = this._getPosition(start, DIRECTION.FRONT);
+    const total = this._getPosition(lastIndex, DIRECTION.BEHIND);
     const behind = total - this._getPosition(end, DIRECTION.BEHIND);
 
     if (behind === this.range.behind) return;
 
-    this.range.start = start;
-    this.range.end = end;
-    this.range.total = total;
-    this.range.front = front;
-    this.range.behind = behind;
+    this.range = { start, end, total, front, behind };
     this._dispatchEvent('onUpdate', Object.assign({}, this.range));
+  },
+
+  addScrollEventListener() {
+    this.options.scroller && on(this.options.scroller, 'scroll', this._onScroll);
+  },
+
+  removeScrollEventListener() {
+    this.options.scroller && off(this.options.scroller, 'scroll', this._onScroll);
   },
 
   isFront() {
@@ -128,7 +142,7 @@ Virtual.prototype = {
   },
 
   getSize(index) {
-    return (this.sizes[index] && this.sizes[index].size) || this.options.size || this.averageSize;
+    return this.sizes[index]?.size || this.options.size || this.averageSize;
   },
 
   getOffset() {
@@ -172,12 +186,18 @@ Virtual.prototype = {
     }, 5);
   },
 
-  addScrollEventListener() {
-    this.options.scroller && on(this.options.scroller, 'scroll', this._onScroll);
-  },
+  _installObserve() {
+    const MutationObserver =
+      window.MutationObserver || window.WebKitMutationObserver || window.MozMutationObserver;
 
-  removeScrollEventListener() {
-    this.options.scroller && off(this.options.scroller, 'scroll', this._onScroll);
+    if (MutationObserver) {
+      this.observer = new MutationObserver(() => this.refresh());
+      this.observer.observe(this.el, observeConfig);
+    } else {
+      console.warn(
+        `tiny-virtual-list: current browser does not support MutationObserver. Invoke the refresh method manually.`
+      );
+    }
   },
 
   _updateScrollElement() {
@@ -198,6 +218,8 @@ Virtual.prototype = {
     } else {
       this._onScroll = () => this._handleScroll();
     }
+
+    this._onScrollEnd = debounce(() => this._handleScrollEnd(), 100);
   },
 
   _handleScroll() {
@@ -210,11 +232,20 @@ Virtual.prototype = {
       offset < this.offset ? DIRECTION.FRONT : offset > this.offset ? DIRECTION.BEHIND : '';
 
     this.offset = offset;
+    this.isScrolling = true;
     this.scrollDirection = direction;
 
     this._dispatchEvent('onScroll', { top: reachTop, bottom: reachBottom, offset, direction });
+    this._onScrollEnd();
+    this._detectUpdate();
+  },
 
-    if (!direction || this._invisible() || this.options.count <= 0) return;
+  _handleScrollEnd() {
+    this.isScrolling = false;
+  },
+
+  _detectUpdate() {
+    if (!this.scrollDirection || this._invisible() || this.options.count <= 0) return;
 
     // stop the calculation when scrolling front and start is `0`
     // or when scrolling behind and end is maximum length
@@ -241,7 +272,7 @@ Virtual.prototype = {
     this.updateRange(start);
   },
 
-  _updateSizes(elements) {
+  _updateElementSizes(elements) {
     let renderSize = 0;
     let end = this.range.start;
     for (let i = 0; i < elements.length; i++) {
@@ -262,12 +293,12 @@ Virtual.prototype = {
     this.averageSize = Math.round(
       this.averageSize ? (averageSize + this.averageSize) / 2 : averageSize
     );
-
-    this._updateAfterEndSizes();
   },
 
   _updateAfterEndSizes() {
     this.sizes.length = this.options.count;
+
+    if (this.range.end >= this.options.count) return;
 
     for (let i = this.range.end + 1; i < this.options.count; i++) {
       const size = this.getSize(i);
@@ -283,10 +314,6 @@ Virtual.prototype = {
     return item ? item[type] : 0;
   },
 
-  _getTotalSize() {
-    return this._getPosition(this._getLastIndex(), DIRECTION.BEHIND);
-  },
-
   _getLastIndex() {
     return Math.max(0, this.options.count - 1);
   },
@@ -297,11 +324,11 @@ Virtual.prototype = {
 
   _getEndByStart(start) {
     const clientSize = this.getClientSize();
+    const { count, buffer } = this.options;
 
-    let end = start;
+    let end = start + buffer;
     let offset = 0;
 
-    const { count, buffer } = this.options;
     while (end < count) {
       offset += this.getSize(end);
       end += 1;
@@ -336,11 +363,10 @@ Virtual.prototype = {
   _getScrollStartOffset() {
     let offset = 0;
 
-    const { scroller, direction } = this.options;
-    if (scroller && this.el) {
-      const rectKey = rectDir[direction];
+    if (this.scrollEl && this.el) {
+      const rectKey = rectDir[this.options.direction];
       const wrapperRect = this.el.getBoundingClientRect();
-      const scrollerRect = scroller === window ? {} : scroller.getBoundingClientRect();
+      const scrollerRect = this.scrollEl.getBoundingClientRect();
 
       offset = this.offset + wrapperRect[rectKey] - (scrollerRect[rectKey] || 0);
     }
