@@ -1,5 +1,5 @@
 /*!
- * tiny-virtual-list v0.0.3
+ * tiny-virtual-list v0.0.4
  * open source under the MIT license
  * https://github.com/mfuu/tiny-virtual-list#readme
  */
@@ -136,10 +136,9 @@
     this.offset = 0;
     this.averageSize = 0;
     this.scrollDirection = '';
+    this._installObserve();
     this._updateScrollElement();
     this._updateOnScrollFunction();
-    this.refresh();
-    this.updateRange();
     this.addScrollEventListener();
   }
   Virtual.prototype = {
@@ -150,7 +149,9 @@
       (_this$observer = this.observer) === null || _this$observer === void 0 || _this$observer.disconnect();
     },
     option: function option(key, value) {
-      if (value === void 0) return this.options[key];
+      if (value === void 0) {
+        return this.options[key];
+      }
       var oldValue = this.options[key];
       this.options[key] = value;
       if (key === 'count') {
@@ -169,28 +170,37 @@
       if (!elements.length) return;
       var firstElement = elements[0];
 
-      // size difference
-      if (this.isFront()) {
+      // correct when scrolling up
+      if (this.isFront() && this.isScrolling) {
         var realSize = this._getElementSize(firstElement);
         var diffSize = realSize - this.getSize(this.range.start);
         this.scrollToOffset(this.offset + diffSize);
       }
-      this._updateSizes(elements);
+      this._updateElementSizes(elements);
       this._updateAfterEndSizes();
     },
     updateRange: function updateRange(start) {
       start = start === void 0 ? this.range.start : start;
+      var lastIndex = this._getLastIndex();
       var end = this._getEndByStart(start);
-      var total = this._getTotalSize();
       var front = this._getPosition(start, DIRECTION.FRONT);
+      var total = this._getPosition(lastIndex, DIRECTION.BEHIND);
       var behind = total - this._getPosition(end, DIRECTION.BEHIND);
       if (behind === this.range.behind) return;
-      this.range.start = start;
-      this.range.end = end;
-      this.range.total = total;
-      this.range.front = front;
-      this.range.behind = behind;
+      this.range = {
+        start: start,
+        end: end,
+        total: total,
+        front: front,
+        behind: behind
+      };
       this._dispatchEvent('onUpdate', _extends({}, this.range));
+    },
+    addScrollEventListener: function addScrollEventListener() {
+      this.options.scroller && on(this.options.scroller, 'scroll', this._onScroll);
+    },
+    removeScrollEventListener: function removeScrollEventListener() {
+      this.options.scroller && off(this.options.scroller, 'scroll', this._onScroll);
     },
     isFront: function isFront() {
       return this.scrollDirection === DIRECTION.FRONT;
@@ -238,20 +248,17 @@
         }
       }, 5);
     },
-    addScrollEventListener: function addScrollEventListener() {
-      this.options.scroller && on(this.options.scroller, 'scroll', this._onScroll);
-    },
-    removeScrollEventListener: function removeScrollEventListener() {
-      this.options.scroller && off(this.options.scroller, 'scroll', this._onScroll);
-    },
     _installObserve: function _installObserve() {
       var _this2 = this;
+      this.refresh();
       var MutationObserver = window.MutationObserver || window.WebKitMutationObserver || window.MozMutationObserver;
       if (MutationObserver) {
         this.observer = new MutationObserver(function () {
           return _this2.refresh();
         });
         this.observer.observe(this.el, observeConfig);
+      } else {
+        console.warn("tiny-virtual-list: current browser does not support MutationObserver.");
       }
     },
     _updateScrollElement: function _updateScrollElement() {
@@ -280,6 +287,9 @@
           return _this3._handleScroll();
         };
       }
+      this._onScrollEnd = debounce(function () {
+        return _this3._handleScrollEnd();
+      }, 100);
     },
     _handleScroll: function _handleScroll() {
       var offset = this.getOffset();
@@ -289,6 +299,7 @@
       var reachBottom = clientSize + offset + 1 >= scrollSize;
       var direction = offset < this.offset ? DIRECTION.FRONT : offset > this.offset ? DIRECTION.BEHIND : '';
       this.offset = offset;
+      this.isScrolling = true;
       this.scrollDirection = direction;
       this._dispatchEvent('onScroll', {
         top: reachTop,
@@ -296,7 +307,14 @@
         offset: offset,
         direction: direction
       });
-      if (!direction || this._invisible() || this.options.count <= 0) return;
+      this._onScrollEnd();
+      this._detectUpdate();
+    },
+    _handleScrollEnd: function _handleScrollEnd() {
+      this.isScrolling = false;
+    },
+    _detectUpdate: function _detectUpdate() {
+      if (!this.scrollDirection || this._invisible() || this.options.count <= 0) return;
 
       // stop the calculation when scrolling front and start is `0`
       // or when scrolling behind and end is maximum length
@@ -312,7 +330,7 @@
       }
       this.updateRange(start);
     },
-    _updateSizes: function _updateSizes(elements) {
+    _updateElementSizes: function _updateElementSizes(elements) {
       var renderSize = 0;
       var end = this.range.start;
       for (var i = 0; i < elements.length; i++) {
@@ -349,9 +367,6 @@
       var item = this.sizes[index];
       return item ? item[type] : 0;
     },
-    _getTotalSize: function _getTotalSize() {
-      return this._getPosition(this._getLastIndex(), DIRECTION.BEHIND);
-    },
     _getLastIndex: function _getLastIndex() {
       return Math.max(0, this.options.count - 1);
     },
@@ -360,11 +375,11 @@
     },
     _getEndByStart: function _getEndByStart(start) {
       var clientSize = this.getClientSize();
-      var end = start;
-      var offset = 0;
       var _this$options2 = this.options,
         count = _this$options2.count,
         buffer = _this$options2.buffer;
+      var end = start + buffer;
+      var offset = 0;
       while (end < count) {
         offset += this.getSize(end);
         end += 1;
@@ -394,13 +409,10 @@
     },
     _getScrollStartOffset: function _getScrollStartOffset() {
       var offset = 0;
-      var _this$options3 = this.options,
-        scroller = _this$options3.scroller,
-        direction = _this$options3.direction;
-      if (scroller && this.el) {
-        var rectKey = rectDir[direction];
+      if (this.scrollEl && this.el) {
+        var rectKey = rectDir[this.options.direction];
         var wrapperRect = this.el.getBoundingClientRect();
-        var scrollerRect = scroller === window ? {} : scroller.getBoundingClientRect();
+        var scrollerRect = this.scrollEl.getBoundingClientRect();
         offset = this.offset + wrapperRect[rectKey] - (scrollerRect[rectKey] || 0);
       }
       return offset;
