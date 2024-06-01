@@ -106,8 +106,12 @@ Virtual.prototype = {
       this.scrollToOffset(this.offset + diffSize);
     }
 
+    const needUpdate = this.sizes.length === 0;
+
     this._updateElementSizes(elements);
     this._updateAfterEndSizes();
+
+    needUpdate && this.updateRange();
   },
 
   updateRange(start) {
@@ -187,8 +191,6 @@ Virtual.prototype = {
   },
 
   _installObserve() {
-    this.refresh();
-
     const MutationObserver =
       window.MutationObserver || window.WebKitMutationObserver || window.MozMutationObserver;
 
@@ -298,7 +300,7 @@ Virtual.prototype = {
   _updateAfterEndSizes() {
     this.sizes.length = this.options.count;
 
-    if (this.range.end >= this.options.count) return;
+    if (!this.averageSize || this.range.end >= this.options.count) return;
 
     for (let i = this.range.end + 1; i < this.options.count; i++) {
       const size = this.getSize(i);

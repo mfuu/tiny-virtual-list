@@ -1,6 +1,6 @@
 {
   "name": "tiny-virtual-list",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "description": "JS library for virtual list",
   "main": "dist/tiny-virtual-list.min.js",
   "types": "types/index.d.ts",

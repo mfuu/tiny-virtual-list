@@ -1,5 +1,5 @@
 /*!
- * tiny-virtual-list v0.0.4
+ * tiny-virtual-list v0.0.5
  * open source under the MIT license
  * https://github.com/mfuu/tiny-virtual-list#readme
  */
@@ -176,8 +176,10 @@
         var diffSize = realSize - this.getSize(this.range.start);
         this.scrollToOffset(this.offset + diffSize);
       }
+      var needUpdate = this.sizes.length === 0;
       this._updateElementSizes(elements);
       this._updateAfterEndSizes();
+      needUpdate && this.updateRange();
     },
     updateRange: function updateRange(start) {
       start = start === void 0 ? this.range.start : start;
@@ -250,7 +252,6 @@
     },
     _installObserve: function _installObserve() {
       var _this2 = this;
-      this.refresh();
       var MutationObserver = window.MutationObserver || window.WebKitMutationObserver || window.MozMutationObserver;
       if (MutationObserver) {
         this.observer = new MutationObserver(function () {
@@ -351,7 +352,7 @@
     },
     _updateAfterEndSizes: function _updateAfterEndSizes() {
       this.sizes.length = this.options.count;
-      if (this.range.end >= this.options.count) return;
+      if (!this.averageSize || this.range.end >= this.options.count) return;
       for (var i = this.range.end + 1; i < this.options.count; i++) {
         var size = this.getSize(i);
         var front = this._getPosition(i - 1, DIRECTION.BEHIND);
